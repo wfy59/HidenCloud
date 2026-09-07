@@ -56,7 +56,7 @@ jobs:
           pkill -f Xvfb || true
           rm -f sing-box sing-box-config.json sing-box.log
 
-      - name: 📝 记录本次运行时间到 README.md
+      - name: 📝 更新最近运行时间到 README.md
         if: always()
         env:
           RUN_STATUS: ${{ job.status }}
@@ -70,26 +70,32 @@ jobs:
           fi
 
           if [ ! -f README.md ]; then
-            # README.md 不存在：自动创建并写入运行记录区块
+            # README.md 不存在：自动创建并写入最近运行时间区块
             {
               echo "# Auto Renew HidenCloud"
               echo ""
-              echo "## 🕒 运行记录"
+              echo "## 🕒 最近运行时间"
               echo ""
-              echo "<!-- RUN_LOG -->"
+              echo "<!-- RUN_LOG_START -->"
               echo "${ENTRY}"
+              echo "<!-- RUN_LOG_END -->"
             } > README.md
-          elif grep -q '<!-- RUN_LOG -->' README.md; then
-            # 已有标记：在标记下方插入新记录（最新在最上面）
-            awk -v entry="${ENTRY}" '/<!-- RUN_LOG -->/{print; print entry; next}1' README.md > README.tmp && mv README.tmp README.md
+          elif grep -q '<!-- RUN_LOG_START -->' README.md; then
+            # 已有标记：把上一次的时间替换为本次（只保留最新一条）
+            awk -v entry="${ENTRY}" '
+              /<!-- RUN_LOG_END -->/ {inblock=0}
+              !inblock {print}
+              /<!-- RUN_LOG_START -->/ {inblock=1; print entry}
+            ' README.md > README.tmp && mv README.tmp README.md
           else
-            # 无标记：在文件末尾追加运行记录区块（不影响已有内容）
+            # 无标记：在文件末尾追加最近运行时间区块（不影响已有内容）
             {
               echo ""
-              echo "## 🕒 运行记录"
+              echo "## 🕒 最近运行时间"
               echo ""
-              echo "<!-- RUN_LOG -->"
+              echo "<!-- RUN_LOG_START -->"
               echo "${ENTRY}"
+              echo "<!-- RUN_LOG_END -->"
             } >> README.md
           fi
 
@@ -100,7 +106,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "README.md 无变化，跳过提交"
           else
-            git commit -m "chore: 记录运行时间 ${RUN_TIME} [skip ci]"
+            git commit -m "chore: 更新最近运行时间 ${RUN_TIME} [skip ci]"
             git push
           fi
 
